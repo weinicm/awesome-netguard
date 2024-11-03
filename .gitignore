@@ -1,0 +1,14 @@
+# .gitignore
+# 忽略 Python 虚拟环境
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+.env
+venv/
+.virtualenv/
+myenv/
