@@ -1,13 +1,15 @@
 import json
 import logging
 from typing import List, Optional
-from domain.models.config import Config  # 假设 Config 模型在 domain/models/config.py 文件中定义
-from db.dbmanager import DBManager
+from domain.schemas.config import Config  # 假设 Config 模型在 domain/models/config.py 文件中定义
+from db.db_manager import DBManager
 
 class ConfigManager:
     def __init__(self):
         self.db_manager = DBManager()
-
+        self.system_config = None
+        
+    
     async def get_config_by_name(self, name: str) -> Optional[Config]:
         query = "SELECT id, name, config_data FROM config WHERE name = $1;"
         result = await self.db_manager.fetch(query, name)

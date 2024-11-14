@@ -1,12 +1,11 @@
 import logging
-from typing import Any, Dict, List, Optional
-from domain.models.provider import Provider  # 假设 Provider 模型在 domain/models/provider.py 文件中定义
-from db.dbmanager import DBManager
-from domain.models.ip_address import IPAddress
+from typing import Any, Dict, List
+from db.db_manager import DBManager
+from domain.schemas.ipaddress import IPAddress
 
 class IpaddressManager:
-    def __init__(self):
-        self.db_manager = DBManager()
+    def __init__(self,db_manager:DBManager):
+        self.db_manager = db_manager
 
     async def get_ips_by_provider(self, provider_id: int, ip_type: str, count: int, randomize: bool = False) -> List[IPAddress]:
         """从数据库中获取指定提供商的IP地址"""
@@ -29,7 +28,7 @@ class IpaddressManager:
             """
 
         try:
-            logging.debug(f"Executing query: {query} with args: {provider_id, ip_type, count}")
+            logging.debug(f"我来找Executing query: {query} with args: {provider_id, ip_type, count}")
             result = await self.db_manager.fetch(query, provider_id, ip_type, count)
             return [IPAddress(ip_address=row['ip_address'], ip_type=row['ip_type'], provider_id=provider_id) for row in result]
         except Exception as e:
@@ -37,7 +36,7 @@ class IpaddressManager:
             logging.error(f"Query: {query}")
             logging.error(f"Args: {provider_id, ip_type, count}")
             # 处理异常，例如返回一个空列表或默认值
-            return []
+            raise e
         
 
     async def batch_insert_ips(self, ip_data_list: List[Dict[str, Any]]) -> bool:

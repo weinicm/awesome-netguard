@@ -1,17 +1,17 @@
+# config_router.py
+
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import ValidationError
 from domain.services.config_service import ConfigService
-from schemas.config import ConfigUpdate,ConfigUpdateProviders
-
+from domain.schemas.config import ConfigUpdate, ConfigUpdateProviders
+from dependencies import get_config_service
 
 router = APIRouter()
 
-# 创建 ConfigService 实例
-config_service = ConfigService()
-
+# 依赖注入
 @router.get("/{name}")
-async def get_config(name: str):
+async def get_config(name: str, config_service: ConfigService = Depends(get_config_service)):
     """
     获取指定名称的配置
     """
@@ -29,12 +29,12 @@ async def get_config(name: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/{id}")
-async def update_config(id: int, config_data: ConfigUpdate):
+async def update_config(id: int, config_data: ConfigUpdate, config_service: ConfigService = Depends(get_config_service)):
     """
     更新指定 ID 的配置
     """
     try:
-        result = await config_service.update_config(id, config_data.content)
+        result = await config_service.update_config(config_data)
         if result is None:
             raise HTTPException(status_code=404, detail="Config not found")
         return {"message": "Config updated successfully", "data": result}
@@ -42,7 +42,7 @@ async def update_config(id: int, config_data: ConfigUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/")
-async def get_all_configs():
+async def get_all_configs(config_service: ConfigService = Depends(get_config_service)):
     """
     获取所有配置
     """
@@ -53,7 +53,7 @@ async def get_all_configs():
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.post("/update-monitor-list")
-async def update_monitor_list(update_data: ConfigUpdateProviders):
+async def update_monitor_list(update_data: ConfigUpdateProviders, config_service: ConfigService = Depends(get_config_service)):
     try:
         provider_ids = [int(id) for id in update_data.provider_ids]
         result = await config_service.update_monitor_list(provider_ids)
@@ -68,10 +68,9 @@ async def update_monitor_list(update_data: ConfigUpdateProviders):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/get-monitor-list")
-async def get_monitor_list():
+async def get_monitor_list(config_service: ConfigService = Depends(get_config_service)):
     try:
         result = await config_service.get_monitor_list()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
