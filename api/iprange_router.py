@@ -5,7 +5,7 @@ from services.logger import setup_logger
 from dependencies import get_ip_range_service
 
 router = APIRouter()
-
+ # ---------------------------------------------------------------------------
 logger = setup_logger(__name__)
 
 @router.put("/api/update/{id}", status_code=201)
@@ -22,7 +22,7 @@ async def create_ip_range(
         background_tasks.add_task(ip_range_service.create_from_api, iprange_data)
         
         logger.info("IP range creation scheduled successfully")
-        return {"message": "IP range creation scheduled"}
+        return {"message": "IP range creation scheduled1"}
     except Exception as e:
         logger.error(f"Error scheduling IP range creation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
