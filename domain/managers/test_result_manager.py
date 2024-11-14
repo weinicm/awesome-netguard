@@ -1,12 +1,12 @@
 import logging
 from typing import Optional
-from domain.models.test_result import TestResult
-from db.dbmanager import DBManager
+from domain.schemas.test_result import TestResult
+from db.db_manager import DBManager
 
 class TestResultManager:
     
-    def __init__(self):
-        self.db_manage = DBManager()
+    def __init__(self,db_manage:DBManager):
+        self.db_manage = db_manage
 
     # ip不会重复,所以有重复的时候,直接更新. ON CONFLICT (ip) DO UPDATE SET
     async def insert_test_result(self, test_result: dict) -> bool:

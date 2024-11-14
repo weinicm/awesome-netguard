@@ -6,9 +6,7 @@ from domain.models.test_result import TestResult
 from domain.services.ip_address_service import IPAddressService
 from domain.services.config_service import ConfigService
 from domain.managers.test_result_manager import TestResultManager
-from domain.services.pubsub_service import PubSubService
-from domain.services.queue_service import QueueService
-from domain.services.cache_service import CacheService
+from services.cache import CacheService
 from domain.services.provider_service import ProviderService
 from utils.tcping import TcpingRunner
 from utils.curl import CurlRunner
@@ -16,15 +14,15 @@ import asyncio
 
 class TestService:
 
-    def __init__(self,provider_id:int, ip_address_service: IPAddressService,pubsub_service: PubSubService,queue_service: QueueService, 
+    def __init__(self,provider_id:int, ip_address_service: IPAddressService,
                  config_service: ConfigService, test_result_manager: TestResultManager,cache_service: CacheService,
                  provider_service: ProviderService):
         self.provider_id = provider_id
         self.ip_address_service = ip_address_service
         self.config_service = config_service
         self.test_result_manager = test_result_manager
-        self.pubsub_service = pubsub_service
-        self.queue_service = queue_service
+        # self.pubsub_service = pubsub_service
+        # self.queue_service = queue_service
         self.cache_service = cache_service
         self.provider_service = provider_service
         self.tcping_semaphore = None

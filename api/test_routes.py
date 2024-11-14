@@ -1,32 +1,27 @@
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException
-from domain.services.test_service import TestService
-from schemas.test_result import CurlTestRequest, TcpingTestRequest
-from dependencies import get_test_service
+from domain.services.tcping_test_service import TcpingTestService
+from domain.schemas.test_result import BatchTestRequest, CurlTestRequest, TcpingTestRequest
+from dependencies import get_tcping_test_service
+from services.logger import setup_logger
+logger = setup_logger(__name__)
 
 router = APIRouter()
 
-@router.post('/tcping')
-async def tcping_test(request: TcpingTestRequest,test_service: TestService = Depends(get_test_service)):
-    results = test_service.run_tcping_test(request.ip_type, request.user_submitted_ips)
-    return results
-
-@router.post('/curl')
-async def curl_test(request: CurlTestRequest,test_service: TestService = Depends(get_test_service)):
-    results = test_service.run_curl_test(request.ip_type)
-    return results
+# @router.post('/tcping')
+# async def tcping_test(request: TcpingTestRequest,test_service :TcpingTestService = Depends(get_tcping_test_service)):
+#     results = get_tcping_test_service.run_tcping_test(request.ip_type, request.user_submitted_ips)
+#     return results
+# # 创建一个锁
 
 
-# 创建一个锁
 lock = asyncio.Lock()
-@router.post('/monitor')
-async def auto_test():
+@router.post('/batch')
+async def batch_test(batch_test_data: BatchTestRequest, tcping_test_service : TcpingTestService = Depends(get_tcping_test_service)):
     async with lock:
         try:
-            # 手动调用依赖函数获取 TestService 实例
-            test_service = get_test_service()
-            
-            await test_service.start_monitoring()
+            await tcping_test_service.batch_tcping_test_task(batch_test_data)
             return {"count": "正在运行", "status": "success"}
         except Exception as e:
+            logger.info(f"出现问题了,{e}")
             raise HTTPException(status_code=500, detail=str(e))

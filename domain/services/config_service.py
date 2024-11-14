@@ -1,13 +1,14 @@
+# config_service.py
 import json
 import logging
 from typing import List, Optional
 from domain.managers.config_manager import ConfigManager
-from schemas1 import ConfigUpdate  # 假设 ConfigUpdate 在 schemas.py 文件中定义
-from domain.models.config import Config  # 假设 Config 模型在 domain/models/config.py 文件中定义
+from domain.schemas.config import ConfigUpdate  # 假设 ConfigUpdate 在 schemas.py 文件中定义
+from domain.schemas.config import Config  # 假设 Config 模型在 domain/models/config.py 文件中定义
 
 class ConfigService:
-    def __init__(self):
-        self.config_manager = ConfigManager()
+    def __init__(self, config_manager: ConfigManager = None):
+        self.config_manager = config_manager or ConfigManager()
 
     async def get_config(self, name: str, default=None) -> Optional[Config]:
         try:
@@ -32,36 +33,36 @@ class ConfigService:
         print("开始执行")
         # 调用 get_config 方法，传入 "system_option" 作为 name 参数
         result_str = await self.get_config(name="system_option")
-        result = json.loads(result_str.config_data)
+        result = json.loads(result_str.config_data) if result_str else {}
         return result if result else None
 
     async def get_curl_config(self) -> Optional[dict]:
         print("开始执行")
-        # 调用 get_config 方法，传入 "system_option" 作为 name 参数
+        # 调用 get_config 方法，传入 "curl" 作为 name 参数
         result = await self.get_config(name="curl")
-        config = json.loads(result.config_data)
+        config = json.loads(result.config_data) if result else {}
         return config
     
     async def get_tcping_config(self) -> Optional[dict]:
         print("开始执行")
-        # 调用 get_config 方法，传入 "system_option" 作为 name 参数
+        # 调用 get_config 方法，传入 "tcping" 作为 name 参数
         result = await self.get_config(name="tcping")
-        config = json.loads(result.config_data)
+        config = json.loads(result.config_data) if result else {}
         return config
     
     async def get_monitor_config(self) -> Optional[dict]:
         print("开始执行")
-        # 调用 get_config 方法，传入 "system_option" 作为 name 参数
+        # 调用 get_config 方法，传入 "monitor_option" 作为 name 参数
         result_str = await self.get_config(name="monitor_option")
-        result = json.loads(result_str.config_data)
+        result = json.loads(result_str.config_data) if result_str else {}
         return result if result else None
     
     async def get_monitor_list(self) -> Optional[dict]:
-        retult = await self.get_config(name="monitor_option")
-        if retult:
-            retult = json.loads(retult.config_data)
-            logging.info(retult)
-        return retult.get("providers")
+        result = await self.get_config(name="monitor_option")
+        if result:
+            result = json.loads(result.config_data)
+            logging.info(result)
+        return result.get("providers") if result else None
     
     async def update_monitor_list(self, data):
         await self.config_manager.update_provider_list(data)
