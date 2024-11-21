@@ -3,74 +3,63 @@
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import ValidationError
+from domain.schemas.config import Config, ConfigCreate, DefualtConfig
 from domain.services.config_service import ConfigService
-from domain.schemas.config import ConfigUpdate, ConfigUpdateProviders
 from dependencies import get_config_service
 
 router = APIRouter()
 
-# 依赖注入
-@router.get("/{name}")
-async def get_config(name: str, config_service: ConfigService = Depends(get_config_service)):
-    """
-    获取指定名称的配置
-    """
+logger = logging.getLogger(__name__)
+
+@router.post("/create", response_model=Config)
+async def save_config(config: ConfigCreate, config_service: ConfigService = Depends(get_config_service)):
     try:
-        result = await config_service.get_config(name=name)
-        if result is None:
-            raise HTTPException(status_code=404, detail="Config not found")
-        return result
-    except HTTPException as http_exc:
-        # 如果是 HTTPException，则直接重新抛出
-        raise http_exc
+        # 删除已经存在的provider_id配置
+        await config_service.delete_provider_config(config.provider_id)
+        # 调用 ConfigService 的方法来保存配置
+        config = await config_service.create_config(config)
+        logger.info(f"我的config:{config}")
+        return config
+    except ValidationError as ve:
+        logger.error(f"Validation error: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        # 对于其他异常，记录错误并返回 500 错误
-        logging.error(f"Error getting config with name: {name}", exc_info=True)
+        logger.error(f"Failed to save config: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-@router.put("/{id}")
-async def update_config(id: int, config_data: ConfigUpdate, config_service: ConfigService = Depends(get_config_service)):
-    """
-    更新指定 ID 的配置
-    """
-    try:
-        result = await config_service.update_config(config_data)
-        if result is None:
-            raise HTTPException(status_code=404, detail="Config not found")
-        return {"message": "Config updated successfully", "data": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/")
-async def get_all_configs(config_service: ConfigService = Depends(get_config_service)):
-    """
-    获取所有配置
-    """
-    try:
-        result = await config_service.get_all_configs()
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/update-monitor-list")
-async def update_monitor_list(update_data: ConfigUpdateProviders, config_service: ConfigService = Depends(get_config_service)):
+@router.get("/default", response_model=DefualtConfig)
+async def get_default_config(config_service: ConfigService = Depends(get_config_service)):
     try:
-        provider_ids = [int(id) for id in update_data.provider_ids]
-        result = await config_service.update_monitor_list(provider_ids)
-        return result
-    except ValidationError as e:
-        logging.error(f"Validation error: {e}")
-        raise HTTPException(status_code=422, detail=e.errors())
-    except ValueError as e:
-        logging.error(f"Value error: {e}")
-        raise HTTPException(status_code=422, detail=str(e))
+        # 调用 ConfigService 的方法来获取默认配置
+        default_config = await config_service.get_default_config()
+        return default_config
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get default config: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
 
-@router.get("/get-monitor-list")
-async def get_monitor_list(config_service: ConfigService = Depends(get_config_service)):
-    try:
-        result = await config_service.get_monitor_list()
-        return result
+@router.get("/provider/{provider_id}",response_model=Config)
+async def get_provider_config(provider_id: int, config_service: ConfigService = Depends(get_config_service)):
+    try: 
+        
+        conf = await config_service.get_config_by_provider(provider_id)
+        logger.info(f"我的conf:{conf}")
+        return conf
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get provider config: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+
+
+# @router.put("/update/{id}",response_model=Config)
+# async def update_provider_config(config: ConfigCreate, config_service: ConfigService = Depends(get_config_service)):
+#     try:
+#         # 调用 ConfigService 的方法来更新提供商配置
+#         updated_config = await config_service.update_config(config)
+#         return updated_config
+#     except ValidationError as ve:
+#         logger.error(f"Validation error: {ve}")
+#         raise HTTPException(status_code=400, detail=str(ve))
+#     except Exception as e:
+#         logger.error(f"Failed to update provider config: {e}")
+#         raise HTTPException(status_code=500, detail="Internal server error")

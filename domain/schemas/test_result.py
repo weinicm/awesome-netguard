@@ -81,14 +81,12 @@ class TestResult(BaseModel):
                 f"test_type={self.test_type}, test_time={self.test_time}, "
                 f"is_delete={self.is_delete})>")
 
-class TcpingTestRequest(BaseModel):
+class TestRequest(BaseModel):
     provider_id: Optional[int] = Field(None, description="The ID of the provider (optional)")
-    ip_type: str = Field(..., description="The type of IP to test (required)")
     user_submitted_ips: Optional[List[str]] = Field(None, description="A list of user-submitted IPs (optional)")
 
 class CurlTestRequest(BaseModel):
     provider_id: Optional[int] = Field(None, description="The ID of the provider (optional)")
-    ip_type: str = Field(..., description="The type of IP to test (required)")
     user_submitted_ips: Optional[List[str]] = Field(None, description="A list of user-submitted IPs (optional)")
 
 class BatchTestRequest(BaseModel):

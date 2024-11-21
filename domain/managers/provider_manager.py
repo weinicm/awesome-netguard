@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from db.db_manager import DBManager
 from domain.schemas.provider import Provider
 from services.logger import setup_logger
+
 logger = setup_logger(__name__)
 
 class ProviderManager:
@@ -17,8 +18,8 @@ class ProviderManager:
 
         # 构建 SQL 插入语句
         insert_query = """
-        INSERT INTO public.providers (name, api_url, logo_url, curl, tcping, monitor, deleted)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO public.providers (name, api_url, logo_url, deleted)
+        VALUES ($1, $2, $3, $4)
         RETURNING id;
         """
         try:
@@ -28,9 +29,6 @@ class ProviderManager:
                 provider_dict['name'],
                 provider_dict.get('api_url', ''),
                 provider_dict.get('logo_url', None),
-                json.dumps(provider_dict.get('curl', {})),
-                json.dumps(provider_dict.get('tcping', {})),
-                json.dumps(provider_dict.get('monitor', {})),
                 False,
                 fetch=True
             )
@@ -59,20 +57,13 @@ class ProviderManager:
         select_query = """
         SELECT * FROM public.providers WHERE id = $1 AND deleted = false;
         """
-
-        provider_data = await self.db_manager.fetchrow(select_query, provider_id)
-        if provider_data:
-            # 将 JSON 字符串字段解析为字典
-            provider_data_dict = dict(provider_data)
-            if 'curl' in provider_data_dict and isinstance(provider_data_dict['curl'], str):
-                provider_data_dict['curl'] = json.loads(provider_data_dict['curl'])
-            if 'tcping' in provider_data_dict and isinstance(provider_data_dict['tcping'], str):
-                provider_data_dict['tcping'] = json.loads(provider_data_dict['tcping'])
-            if 'monitor' in provider_data_dict and isinstance(provider_data_dict['monitor'], str):
-                provider_data_dict['monitor'] = json.loads(provider_data_dict['monitor'])
-
-            return Provider.from_dict(provider_data_dict)
-        return None
+        try:
+            provider_data = await self.db_manager.fetchrow(select_query, provider_id)
+            provider_data = dict(provider_data)
+            return Provider.from_dict(provider_data)
+        except Exception as e:
+            logger.error(f"Failed to get provider by ID {provider_id}: {e}")
+            return None
 
     async def update_provider(self, provider: Provider) -> Optional[Provider]:
         """
@@ -83,28 +74,20 @@ class ProviderManager:
         """
         id = provider.id
         existing_provider = await self.get_provider_by_id(id)
-        logger.info(f"aaaaa:{existing_provider}")
+        logger.info(f"Existing provider: {existing_provider}")
         if existing_provider:
             try:
                 # 更新 Provider 实例的属性
                 existing_provider.name = provider.name
                 existing_provider.logo_url = provider.logo_url
-                existing_provider.curl = provider.curl
-                existing_provider.tcping = provider.tcping
-                existing_provider.monitor = provider.monitor
 
                 # 构建 SQL 更新语句
                 update_query = """
                 UPDATE public.providers
-                SET name = $1, logo_url = $2, curl = $3, tcping = $4, monitor = $5, updated_at = NOW()
-                WHERE id = $6 AND deleted = false;
+                SET name = $1, logo_url = $2, updated_at = NOW()
+                WHERE id = $3 AND deleted = false;
                 """
-                # 将 curl, tcping, monitor 转换为 JSONB
-                curl_jsonb = json.dumps(existing_provider.curl)
-                tcping_jsonb = json.dumps(existing_provider.tcping)
-                monitor_jsonb = json.dumps(existing_provider.monitor)
-
-                await self.db_manager.execute(update_query, existing_provider.name, existing_provider.logo_url, curl_jsonb, tcping_jsonb, monitor_jsonb, id)
+                await self.db_manager.execute(update_query, existing_provider.name, existing_provider.logo_url, id)
                 logger.info(f"Provider {id} updated successfully.")
                 return existing_provider
             except Exception as e:
@@ -124,7 +107,7 @@ class ProviderManager:
         SET deleted = true, updated_at = NOW()
         WHERE id = $1 AND deleted = false;
         """
-        logger.info(f"deleting:{delete_query}")
+        logger.info(f"Deleting provider with query: {delete_query}")
         result = await self.db_manager.execute(delete_query, provider_id)
         if result == "UPDATE 1":
             logger.info(f"Provider {provider_id} deleted successfully.")
@@ -169,19 +152,12 @@ class ProviderManager:
             try:
                 # 将 asyncpg.Record 转换为字典
                 provider_data_dict = dict(provider_data)
-
-                # 预处理数据，将 JSON 字符串解析为字典
-                for key in ['curl', 'tcping', 'monitor']:
-                    if isinstance(provider_data_dict[key], str):
-                        provider_data_dict[key] = json.loads(provider_data_dict[key])
-
                 provider = Provider.from_dict(provider_data_dict)
                 providers.append(provider)
             except ValidationError as e:
-                print(f"Validation error for provider data: {e}")
-                print(e.errors())
+                logger.error(f"Validation error for provider data: {e}")
             except json.JSONDecodeError as e:
-                print(f"JSON decode error for provider data: {e}")
+                logger.error(f"JSON decode error for provider data: {e}")
 
         return providers
 

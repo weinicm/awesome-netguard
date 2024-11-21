@@ -5,8 +5,8 @@ from db.db_manager import DBManager
 
 class TestResultManager:
     
-    def __init__(self,db_manage:DBManager):
-        self.db_manage = db_manage
+    def __init__(self,db_manager:DBManager):
+        self.db_manage = db_manager
 
     # ip不会重复,所以有重复的时候,直接更新. ON CONFLICT (ip) DO UPDATE SET
     async def insert_test_result(self, test_result: dict) -> bool:

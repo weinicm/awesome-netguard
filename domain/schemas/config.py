@@ -1,95 +1,146 @@
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Any, List, Optional, Dict, Union
-import ipaddress
-import json
-from services.logger import setup_logger
 
-logger = setup_logger(__name__)
+# 定义嵌套模型
+class CurlConfig(BaseModel):
+    port: int
+    speed: int
+    enable: bool
+    time_out: int
+    download_url: str
+    ip_v4_enable: bool
+    ip_v6_enable: bool
+    count: int
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self
+
+class TcpingConfig(BaseModel):
+    port: int
+    enable: bool
+    time_out: int
+    avg_latency: int
+    packet_loss: float
+    ip_v4_enable: bool
+    ip_v6_enable: bool
+    std_deviation: str
+    count:int
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(**data)
+    
+class MonitorConfig(BaseModel):
+    count: int
+    auto_fill: bool
+    min_count: int
+    providers: List[int]
+    auto_delete: bool
+    download_test_number: int
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self
 
 # 定义 Config 模型
 class Config(BaseModel):
-    id: int = Field(..., gt=0)  # id 不能为空，且必须大于 0
-    name: str = Field(..., min_length=1, max_length=100)  # name 不能为空，长度在 1 到 100 之间
-    config_data: Dict[str, Any] = Field(..., description="Configuration data as JSONB")  # config_data 不能为空
-    description: Optional[str] = Field(None, description="Description of the configuration")  # description 可以为空
+    id: int = Field(..., gt=0)
+    name: Optional[str] = Field('', min_length=1, max_length=100)
+    provider_id: int
+    curl: CurlConfig
+    tcping: TcpingConfig
+    monitor: MonitorConfig
+    description: Optional[str] = Field('', description="Description of the configuration")
 
     model_config = ConfigDict(
         validate_assignment=True,
         arbitrary_types_allowed=True,
     )
 
-    @model_validator(mode='before')
-    @classmethod
-    def validate_config_data(cls, values):
-        config_data = values.get('config_data')
-        if config_data is not None and not isinstance(config_data, dict):
-            try:
-                values['config_data'] = json.loads(config_data)
-            except json.JSONDecodeError as e:
-                raise ValueError("config_data must be a valid JSON object") from e
-        return values
-
     def to_dict(self) -> dict:
-        # 将 Config 对象转换为字典，便于与 JSONB 字段兼容
         return {
             'id': self.id,
             'name': self.name,
-            'config_data': self.config_data,  # 可能是 None
-            'description': self.description  # 可能是 None
+            'provider_id': self.provider_id,
+            'curl': self.curl.model_dump(),
+            'tcping': self.tcping.model_dump(),
+            'monitor': self.monitor.model_dump(),
+            'description': self.description
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Config':
-        # 使用 dict.get 来获取可选字段，并设置默认值为 None 或空字符串
         return cls(
-            id=data.get('id'),  # 可选字段
-            name=data.get('name', ''),  # 必需字段，如果未提供则默认为空字符串
-            config_data=data.get('config_data'),  # 可选字段
-            description=data.get('description')  # 可选字段
+            id=data.get('id', 0),
+            name=data.get('name', ''),
+            provider_id=data.get('provider_id', 0),
+            curl=CurlConfig(**data.get('curl', {})),
+            tcping=TcpingConfig(**data.get('tcping', {})),
+            monitor=MonitorConfig(**data.get('monitor', {})),
+            description=data.get('description')
         )
 
     def __repr__(self):
-        return (f"<Config(id={self.id}, name={self.name}, "
-                f"config_data={self.config_data}, description={self.description})>")
+        return (f"<Config(id={self.id}, name={self.name}, provider_id={self.provider_id}, "
+                f"curl={self.curl}, tcping={self.tcping}, "
+                f"monitor={self.monitor}, description={self.description})>")
 
+# 配置创建模型
+class ConfigCreate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    provider_id: int
+    curl: CurlConfig
+    tcping: TcpingConfig
+    monitor: MonitorConfig
+    description: Optional[str] = Field(None, description="Description of the configuration")
+
+    def to_config(self) -> Config:
+        return Config(
+            id=None,
+            name=self.name,
+            provider_id=self.provider_id,
+            curl=self.curl,
+            tcping=self.tcping,
+            monitor=self.monitor,
+            description=self.description
+        )
 
 # 配置更新模型
 class ConfigUpdate(BaseModel):
-    id: int = Field(..., gt=0)  # id 不能为空，且必须大于 0
-    content: str  # content 是一个 JSON 字符串
+    id: int = Field(..., gt=0)
+    provider_id: int = Field(..., gt=0)
+    content: dict
 
     @field_validator('content')
     def validate_content(cls, v):
-        try:
-            # 尝试解析 content 字段为 JSON
-            json.loads(v)
-        except json.JSONDecodeError as e:
-            raise ValueError("Content must be a valid JSON string") from e
+        if not isinstance(v, dict):
+            raise ValueError("Content must be a valid dictionary")
         return v
 
-    @model_validator(mode='before')
-    @classmethod
-    def parse_content(cls, values):
-        content_str = values.get('content')
-        if isinstance(content_str, str):
-            try:
-                content_dict = json.loads(content_str)
-                values['content'] = content_dict
-            except json.JSONDecodeError as e:
-                raise ValueError("Content must be a valid JSON string") from e
-        return values
+    def apply_updates(self, config: Config):
+        for key, value in self.content.items():
+            if hasattr(config, key):
+                attr = getattr(config, key)
+                if isinstance(attr, BaseModel) and isinstance(value, dict):
+                    attr.update(**value)
+                else:
+                    setattr(config, key, value)
+        return config
 
-
-# 配置更新提供商模型
-class ConfigUpdateProviders(BaseModel):
-    provider_ids: Optional[List[Union[int, str]]] = Field(default_factory=list)
-
-    @model_validator(mode='before')
-    @classmethod
-    def validate_provider_ids(cls, values):
-        provider_ids = values.get('provider_ids')
-        if provider_ids is not None:
-            for provider_id in provider_ids:
-                if not isinstance(provider_id, (int, str)):
-                    raise ValueError("provider_ids must contain only integers or strings")
-        return values
+# 默认配置模型
+class DefualtConfig(BaseModel):
+    curl: CurlConfig
+    tcping: TcpingConfig
+    monitor: MonitorConfig
+    description: Optional[str] = Field(None, description="Description of the configuration")

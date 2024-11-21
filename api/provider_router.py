@@ -42,7 +42,7 @@ async def get_provider_by_id(
     :param provider_id: 提供商的唯一标识符
     :return: Provider 实例，如果找不到则返回 404
     """
-    provider = provider_service.get_provider_by_id(id)
+    provider =await provider_service.get_provider_by_id(provider_id)
     if provider:
         return provider
     else:

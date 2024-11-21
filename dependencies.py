@@ -1,5 +1,6 @@
 from dependency_injector import containers, providers
 from db.db_manager import DBManager
+from domain.managers.config_manager import ConfigManager
 from services.redis_manager import RedisManager
 from domain.services.cache_service import CacheService
 from services.pubsub_service import PubSubService
@@ -13,6 +14,8 @@ from domain.managers.ip_manager import IpaddressManager
 from domain.managers.ip_range_manager import IPRangeManager
 from domain.managers.provider_manager import ProviderManager
 from services.enqueue_service import EnqueueService
+from domain.managers.monitor_manager import MonitorManager
+from domain.services.monitor_service import MonitorService
 
 # 设置日志记录
 from services.logger import setup_logger
@@ -37,7 +40,13 @@ class ApplicationContainer(containers.DeclarativeContainer):
     provider_manager = providers.Factory(ProviderManager, db_manager=db_manager)
     pubsub_service = providers.Singleton(PubSubService, redis_manager=redis_manager)
     cache_service = providers.Factory(CacheService, redis_manager=redis_manager)
-    config_service = providers.Factory(ConfigService)
+    
+    # 配置管理器
+    config_manager = providers.Factory(ConfigManager, db_manager=db_manager)
+    
+    # 配置服务
+    config_service = providers.Factory(ConfigService, config_manager=config_manager)
+    
     test_result_manager = providers.Factory(TestResultManager, db_manager=db_manager)
     provider_service = providers.Factory(
         ProviderService,
@@ -63,15 +72,20 @@ class ApplicationContainer(containers.DeclarativeContainer):
     
     tcping_test_service = providers.Factory(
         TcpingTestService,
-        ip_address_service=ip_address_service,
         pubsub_service=pubsub_service,
-        config_service=config_service,
         test_result_manager=test_result_manager,
-        cache_service=cache_service,
-        provider_service=provider_service,
         enqueue_service=enqueue_service
     )
-    
+
+    # 添加 MonitorManager 和 MonitorService
+    monitor_manager = providers.Factory(MonitorManager, db_manager=db_manager)
+    monitor_service = providers.Factory(
+        MonitorService,
+        monitor_manager=monitor_manager,
+        pubsub_service=pubsub_service,
+        queue_service=enqueue_service
+    )
+
 # 创建容器实例
 container = ApplicationContainer()
 
@@ -103,3 +117,10 @@ def get_config_service() -> ConfigService:
 
 async def get_tcping_test_service() -> TcpingTestService:
     return await container.tcping_test_service()
+
+# 添加获取 MonitorManager 和 MonitorService 的辅助函数
+def get_monitor_manager() -> MonitorManager:
+    return container.monitor_manager()
+
+async def get_monitor_service() -> MonitorService:
+    return await container.monitor_service()

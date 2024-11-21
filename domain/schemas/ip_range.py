@@ -230,3 +230,23 @@ class IPRangeUpdateCustomRange(BaseModel):
         validate_assignment=True,
         arbitrary_types_allowed=True,
     )   
+
+
+class IPRangesByProviderResponse(BaseModel):
+    provider_id: int = Field(..., description="供应商 ID，不能为空")
+    api_range_list: List[IPRange] = Field(default_factory=list, description="API URL 列表")
+    custom: List[IPRange] = Field(default_factory=list, description="自定义 IP 范围列表")
+    single_ips: List[IPRange] = Field(default_factory=list, description="单个 IP 地址列表")
+    cidrs: List[IPRange] = Field(default_factory=list, description="CIDR 列表")
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        arbitrary_types_allowed=True,
+    )
+
+class IPRangesBYProviderRequest(BaseModel):
+    provider_id: int = Field(..., description="供应商 ID，不能为空")
+    model_config = ConfigDict(
+        validate_assignment=True,
+        arbitrary_types_allowed=True,
+    )

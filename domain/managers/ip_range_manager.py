@@ -46,10 +46,14 @@ class IPRangeManager:
         
     async def get_ip_ranges_by_provider_id(self, provider_id: int) -> List[IPRange]:
         query = "SELECT * FROM ip_ranges WHERE provider_id = $1"
-        params = (provider_id,)
-        records = await self.db_manager.fetch(query, params)
-        ip_ranges = [IPRange.from_record(record) for record in records]
-        return ip_ranges
+        try:
+            records = await self.db_manager.fetch(query, provider_id)
+            ip_ranges = [IPRange.from_record(record) for record in records]
+            return ip_ranges
+        except Exception as e:
+            logger.error(f"Failed to get IP ranges by provider ID:sql {query}. Error: {e}")
+            return []
+            
     
     async def delete_ip_range_by_source(self, provider_id: int, source: str) -> bool:       
         query = "DELETE FROM ip_ranges WHERE provider_id = $1 AND source = $2"

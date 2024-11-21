@@ -1,68 +1,146 @@
-# config_service.py
 import json
 import logging
-from typing import List, Optional
+from typing import Optional
 from domain.managers.config_manager import ConfigManager
-from domain.schemas.config import ConfigUpdate  # 假设 ConfigUpdate 在 schemas.py 文件中定义
-from domain.schemas.config import Config  # 假设 Config 模型在 domain/models/config.py 文件中定义
+from domain.schemas.config import Config, ConfigUpdate, ConfigCreate, TcpingConfig  # 假设 Config、ConfigUpdate 和 ConfigCreate 在 schemas.py 文件中定义
+
+logger = logging.getLogger(__name__)
 
 class ConfigService:
-    def __init__(self, config_manager: ConfigManager = None):
-        self.config_manager = config_manager or ConfigManager()
+    def __init__(self, config_manager: ConfigManager ):
+        self.config_manager = config_manager
 
-    async def get_config(self, name: str, default=None) -> Optional[Config]:
+    async def get_default_config(self) -> Optional[Config]:
+        """
+        获取默认配置。
+        :return: 默认配置对象，如果不存在则返回 None。
+        """
         try:
-            # 从 ConfigManager 获取指定名称的配置
-            result = await self.config_manager.get_config_by_name(name)
-            if result is None:
-                logging.error(f"Config with name {name} not found")
-                return default
-            return result
+            default_config = await self.config_manager.get_config_by_name('default')
+            if default_config:
+                return default_config
+            else:
+                logger.warning("Default configuration not found.")
+                return None
         except Exception as e:
-            # 如果在处理过程中发生任何异常，记录错误并抛出异常
-            logging.error(f"Error getting config with name: {name}", exc_info=True)
-            raise
+            logger.error(f"Error fetching default configuration: {e}")
+            return None
 
-    async def update_config(self, config_data: ConfigUpdate):
-        return await self.config_manager.update_config(config_data.id, json.dumps(config_data.content))
+    async def get_config_by_provider(self, provider_id: int) -> Config:
+        """
+        根据提供商 ID 获取配置。
+        :param provider_id: 提供商 ID
+        :return: 配置对象，如果不存在则返回 None。
+        """
+        try:
+            config = await self.config_manager.get_config_by_provider_id(provider_id)
+            logger.info(f"Configuration found for provider ID: {config}")
+            if config:
+                return config
+            else:
+                logger.warning(f"Configuration not found for provider ID: {provider_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching configuration for provider ID {provider_id}: {e}")
+            return None
 
-    async def get_all_configs(self) -> List[Config]:
-        return await self.config_manager.get_all_configs()
 
-    async def get_system_config(self) -> Optional[dict]:
-        print("开始执行")
-        # 调用 get_config 方法，传入 "system_option" 作为 name 参数
-        result_str = await self.get_config(name="system_option")
-        result = json.loads(result_str.config_data) if result_str else {}
-        return result if result else None
+        """
+        更新配置。
+        :param config: 更新的配置对象
+        :return: 更新后的配置对象，如果失败则返回 None。
+        """
+        try:
+            id = config.id
+            query = """
+                UPDATE config
+                SET name = $1, curl = $2, tcping = $3, nsi_option = $4, system_option = $5, monitor = $6, description = $7
+                WHERE id = $8
+                RETURNING *;
+            """
+            result = await self.db_manager.fetchrow(
+                query,
+                config.name,
+                json.dumps(config.curl.model_dump()),
+                json.dumps(config.tcping.model_dump()),
+                json.dumps(config.nsi_option.model_dump()) if config.nsi_option else None,
+                json.dumps(config.system_option.model_dump()) if config.system_option else None,
+                json.dumps(config.monitor.model_dump()),
+                config.description,
+                id
+            )
+            if result:
+                logger.info(f"配置更新成功，ID: {id}")
+                config_data = {
+                    'id': result['id'],
+                    'name': result['name'],
+                    'provider_id': result['provider_id'],
+                    'curl': json.loads(result['curl']),
+                    'tcping': json.loads(result['tcping']),
+                    'nsi_option': json.loads(result['nsi_option']) if result['nsi_option'] else None,
+                    'system_option': json.loads(result['system_option']) if result['system_option'] else None,
+                    'monitor': json.loads(result['monitor']),
+                    'description': result['description']
+                }
+                return Config(**config_data)
+            else:
+                logger.error(f"配置更新失败，ID: {id}")
+                return None
+        except Exception as e:
+            logger.error(f"配置更新失败，ID: {id}, 错误: {e}")
+            return None
+    async def delete_provider_config(self, provider_id: int) -> bool:
+        """
+        删除提供商的配置。
+        :param provider_id: 提供商 ID
+        :return: 如果删除成功返回 True，否则返回 False。
+        """
+        try:
+            if not await self.config_manager.config_exists(provider_id):
+                logger.warning(f"Configuration not found for provider ID: {provider_id}")
+                return False
 
-    async def get_curl_config(self) -> Optional[dict]:
-        print("开始执行")
-        # 调用 get_config 方法，传入 "curl" 作为 name 参数
-        result = await self.get_config(name="curl")
-        config = json.loads(result.config_data) if result else {}
-        return config
-    
-    async def get_tcping_config(self) -> Optional[dict]:
-        print("开始执行")
-        # 调用 get_config 方法，传入 "tcping" 作为 name 参数
-        result = await self.get_config(name="tcping")
-        config = json.loads(result.config_data) if result else {}
-        return config
-    
-    async def get_monitor_config(self) -> Optional[dict]:
-        print("开始执行")
-        # 调用 get_config 方法，传入 "monitor_option" 作为 name 参数
-        result_str = await self.get_config(name="monitor_option")
-        result = json.loads(result_str.config_data) if result_str else {}
-        return result if result else None
-    
-    async def get_monitor_list(self) -> Optional[dict]:
-        result = await self.get_config(name="monitor_option")
-        if result:
-            result = json.loads(result.config_data)
-            logging.info(result)
-        return result.get("providers") if result else None
-    
-    async def update_monitor_list(self, data):
-        await self.config_manager.update_provider_list(data)
+            await self.config_manager.delete_config(provider_id)
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting configuration for provider ID {provider_id}: {e}")
+            return False
+
+    async def create_config(self, create_data: ConfigCreate) -> Optional[Config]:
+        """
+        创建新的提供商配置。
+        :param create_data: 新配置的数据
+        :return: 创建的配置对象，如果失败则返回 None。
+        """
+        try:
+            await self.config_manager.delete_config(create_data.provider_id)
+            return await self.config_manager.create_config(create_data)
+        except Exception as e:
+            logger.error(f"Error creating configuration: {e}")
+            return None
+        
+    async def update_config(self, config: ConfigUpdate) -> Optional[Config]:
+        """
+        更新配置。
+        :param config: 更新的配置对象
+        :return: 更新后的配置对象，如果失败则返回 None。
+        """
+        try:
+            return await self.config_manager.update_config(config)
+        except Exception as e:
+            logger.error(f"Error updating configuration: {e}")
+            return None
+        
+    async def get_provider_tcping_config(self, provider_id: int) -> Optional[TcpingConfig]:
+        try:
+            config = await self.config_manager.get_provider_tcping_config(provider_id)
+            if config:
+                return config
+            else:
+                logger.warning(f"Configuration not found for provider ID: {provider_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching configuration for provider ID {provider_id}: {e}")
+            return None
+        
+        

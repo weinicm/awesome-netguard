@@ -4,8 +4,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 import aiohttp
 from domain.managers.ip_range_manager import IPRangeManager
-from domain.schemas.ip_range import IPRange, IPRangeSource  # 假设 IPRange 模型在 domain/models/ip_range.py 文件中定义
-from domain.schemas.ip_range import IPRangeCreateFromAPI,IPRangeCreateFromCidrs, IPRangeCreateFromCustomRange,IPRangeCreateFromSingleIps,IPRangeSource
+from domain.schemas.ip_range import IPRange, IPRangeSource, IPRangesByProviderResponse, IPRangeCreateFromAPI,IPRangeCreateFromCidrs, IPRangeCreateFromCustomRange,IPRangeCreateFromSingleIps,IPRangeSource
 from services.logger import setup_logger
 from services.pubsub_service import PubSubService
 
@@ -22,10 +21,28 @@ class IPRangeService:
     async def get_ip_range_by_id(self, ip_range_id: int) -> Optional[IPRange]:
         return await self.ip_range_manager.get_ip_range_by_id(ip_range_id)
     
-    async def get_ip_rangs_by_provider(self,proivder_id:int)->List[IPRange]:
-        return await self.ip_range_manager.get_ip_ranges_by_provider_id(proivder_id)
+    async def get_ip_ranges_by_provider(self, provider_id: int) -> IPRangesByProviderResponse:
+        try:
+            ip_ranges = await self.ip_range_manager.get_ip_ranges_by_provider_id(provider_id)
+            logger.info(f"我的数据: {ip_ranges}")  # Corrected logging statement
+            if ip_ranges is None:
+                return IPRangesByProviderResponse(provider_id = provider_id,api_url=[], custom_ranges=[], single_ips=[])
+        except Exception as e:
+            logger.error(f"Failed to get IP ranges by provider ID: {e}")
+            raise e
+        
+        for ip_rang in ip_ranges:
+            logger.info(f"我的数据: {ip_rang.source.value}")    
     
-
+        response_data ={
+            "provider_id": provider_id,
+            "api_range_list":[ip_range for ip_range in ip_ranges if ip_range.source.value == IPRangeSource.API.value],
+            "custom":[ip_range for ip_range in ip_ranges if ip_range.source.value == IPRangeSource.CUSTOM.value],
+            "single_ips":[ip_range for ip_range in ip_ranges if ip_range.source.value == IPRangeSource.SINGLE.value],
+            "cidrs":[ip_range for ip_range in ip_ranges if ip_range.source.value == IPRangeSource.CIDRS.value]
+        }
+        return IPRangesByProviderResponse(**response_data)
+    
     async def create_from_api(self, create_ip_range_data: IPRangeCreateFromAPI) -> bool:
         """
         从 API 创建 IP 范围
@@ -63,13 +80,15 @@ class IPRangeService:
                 "start_ip": start_ip,
                 "end_ip": end_ip,
                 "provider_id": create_ip_range_data.provider_id,
-                "source": IPRangeSource.API.value,
+                
+                "source": IPRangeSource.CIDRS.value,
                 "cidr": cidr
             }
             ip_ranges.append(ip_range)
 
         logger.info(f"Creating IP ranges from API: {ip_ranges}")
         try:
+            await self.ip_range_manager.delete_ip_range_by_source(create_ip_range_data.provider_id, IPRangeSource.API.value)
             saved_ip_ranges = await self.ip_range_manager.save_ip_ranges(ip_ranges)
             return True
         except Exception as e:
@@ -121,47 +140,7 @@ class IPRangeService:
         except Exception as e:
             logger.error(f"Failed to create IP ranges from CIDRs: {e}")
             raise Exception("Failed to create IP ranges from CIDRs")
-        # """
-        # 从 CIDR 列表创建 IP 范围
 
-        # Args:
-        #     ip_range_data (IPRangeCreateFromCidrs): 包含 CIDR 列表和提供者 ID 的数据对象
-
-        # Returns:
-        #     List[IPRange]: 创建的 IP 范围列表
-        # """
-        # cidrs = ip_range_data.cidrs
-
-        # # 计算每个 CIDR 的 start_ip 和 end_ip
-        # ip_ranges = []
-        # for cidr in cidrs:
-        #     interface = ipaddress.ip_interface(cidr)
-        #     network = interface.network
-        #     if str(interface.ip) == str(network.network_address):
-        #         # 用户输入的是网络地址
-        #         start_ip = str(network.network_address)
-        #         end_ip = str(network.broadcast_address)
-        #     else:
-        #         # 用户输入的是具体的 IP 地址
-        #         start_ip = str(interface.ip)
-        #         end_ip = str(interface.ip)
-
-        #     ip_range = IPRange(
-        #         id=None,  # 假设 ID 由数据库自动生成
-        #         start_ip=start_ip,
-        #         end_ip=end_ip,
-        #         provider_id=ip_range_data.provider_id,
-        #         source=IPRangeSource.CIDRS,
-        #         cidr=cidr
-        #     )
-        #     ip_ranges.append(ip_range)
-
-        # logger.info(f"Creating IP ranges from CIDRs: {ip_ranges}")
-        # try:
-        #     return  await self.ip_range_manager.save_ip_ranges(ip_ranges)
-        # except Exception as e:
-        #     logger.error(f"Failed to create IP ranges from CIDRs: {e}")
-        #     raise Exception("Failed to create IP ranges from CIDRs")
 
     async def update_ip_range_from_single_ips(self, iprange_data: IPRangeCreateFromSingleIps) -> List[Dict]:
         """
@@ -249,11 +228,13 @@ class IPRangeService:
         """
         max_retries = 3
         retry_delay = 5  # 重试间隔时间（秒）
-
+        headers = {
+            'Content-Type': 'application/json'
+        }
         for attempt in range(max_retries):
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
+                    async with session.get(url,headers=headers) as resp:
                         if resp.status != 200:
                             raise ValueError(f"Failed to fetch data from API: {resp.status}")
                         data = await resp.json()
@@ -304,5 +285,5 @@ class IPRangeService:
         return await self.ip_range_manager.delete_ip_range_by_id(ip_range_id)
     
     
-    async def delete_ip_range_by_api(self, range_data:IPRangeCreateFromAPI):
-        return await self.ip_range_manager.delete_ip_range_by_source(range_data.provider_id, IPRangeSource.API.value)
+    # async def delete_ip_range_by_api(self, range_data:IPRangeCreateFromAPI):
+    #     return await self.ip_range_manager.delete_ip_range_by_source(range_data.provider_id, IPRangeSource.API.value)

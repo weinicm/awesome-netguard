@@ -23,7 +23,7 @@ class IPAddressService:
         self.semaphore = asyncio.Semaphore(10)  # 插入ip时限制并发数为10
  
     
-    async def _store_provider_ips(self, provider_id: int):
+    async def store_provider_ips(self, provider_id: int):
         logger.info("开始保存IP")
         try:
             # 获取IP范围
@@ -33,7 +33,7 @@ class IPAddressService:
                 return
             logger.info(f"Found {len(ip_ranges)} IP ranges for provider {provider_id}")
 
-            # 删除旧的IP范围
+            # 删除旧的IP
             await self.ip_manager.delete_ips_by_provider(provider_id)
 
             # 初始化 all_items 列表
@@ -80,7 +80,6 @@ class IPAddressService:
                         await self.pubsub_service.publish("progress_updates", json.dumps(progress_data))
                     except Exception as e:
                         logger.error(f"Failed to publish progress update. Error: {e}")
-
                     return processed_count
 
             # 创建并发任务列表
@@ -184,4 +183,9 @@ class IPAddressService:
         return await self.get_ips_by_provider(provider_id, 'ipv4', count, randomize)
     
     async def get_ipsv6_by_provider(self, provider_id: int, count: int, randomize: bool = True) -> List[str]:
-        return await self.get_ips_by_provider(provider_id, 'ipv6', count, randomize)    
+        return await self.get_ips_by_provider(provider_id, 'ipv6', count, randomize)
+    
+    
+    
+    
+    

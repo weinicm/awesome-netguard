@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from api import config_router, iprange_router, provider_router, message_router, test_router
+from api import config_router, iprange_router, provider_router, message_router, test_router,monitor_roter
 from dependencies import get_pubsub_service,get_db_manager,get_redis_manager
 from services.logger import setup_logger
 import asyncio
@@ -75,7 +75,7 @@ app.include_router(config_router, prefix="/config", tags=["Config"])
 app.include_router(iprange_router, prefix="/iprange", tags=["Ipranges"])
 app.include_router(message_router, prefix="/message", tags=["MessageRouter"])
 app.include_router(test_router, prefix="/test", tags=["Test_Router"])
-
+app.include_router(monitor_roter, prefix="/monitor", tags=["Monitor_Roter"])
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to CDNNetGuard"}

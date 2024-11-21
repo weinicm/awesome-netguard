@@ -32,19 +32,21 @@ class ProviderService:
             return None
     
 
-    async def get_provider_by_id(self, provider_id: int) -> Optional[Provider]:
+    async def get_provider_by_id(self, provider_id: int) -> Provider:
         """
         根据提供商 ID 获取 Provider 实例。
 
         :param provider_id: 提供商的唯一标识符
         :return: Provider 实例，如果找不到则返回 None
         """
-        provider_data =await self.provider_manager.get_provider_by_id(provider_id)
-        if provider_data:
-            return Provider.from_dict(provider_data.to_dict())
-        return None
-
-    async def update_provider(self, provider_id: int, provider_update: ProviderUpdate) -> Optional[Provider]:
+        try:
+            provider =await self.provider_manager.get_provider_by_id(provider_id)
+            if provider:
+                return provider
+        except Exception as e:
+            raise e
+    
+    async def update_provider(self, provider_id: int, provider_update: ProviderUpdate) -> Provider:
         """
         更新提供商的配置信息。
 
@@ -58,12 +60,6 @@ class ProviderService:
                 if provider_update.name is not None:
                     provider.name = provider_update.name
                 provider.logo_url = provider_update.logo_url
-                if provider_update.curl is not None:
-                    provider.curl.update(provider_update.curl)
-                if provider_update.tcping is not None:
-                    provider.tcping.update(provider_update.tcping)
-                if provider_update.monitor is not None:    
-                    provider.monitor.update(provider_update.monitor)
                 await self.provider_manager.update_provider(provider)
                 logger.info(f"Provider {provider_id} updated successfully.")
                 return provider
