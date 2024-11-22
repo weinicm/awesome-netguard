@@ -24,7 +24,6 @@ async def lifespan(app):
 
     # 创建 PubSubService 实例
     pubsub_service =await get_pubsub_service()
-    logger.info(f"我的崆:{pubsub_service}")
     logger.info(f"PubSubService initialized: {pubsub_service}")
 
     # 创建一个后台任务来处理发布/订阅

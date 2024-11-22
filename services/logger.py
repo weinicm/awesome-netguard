@@ -2,7 +2,7 @@
 import logging
 import colorlog
 
-def setup_logger(name, log_level=logging.DEBUG):
+def setup_logger(name, log_level=logging.INFO):
     # 获取或创建 logger
     logger = logging.getLogger(name)
     

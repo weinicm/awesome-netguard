@@ -4,23 +4,23 @@ import json
 import random
 from typing import Any, Dict, List
 from domain.managers.ip_range_manager import IPRangeManager
-from domain.managers.provider_manager import ProviderManager
 from domain.managers.ip_manager import IpaddressManager  # 假设 IPManager 在 domain/managers/ip_manager.py 文件中定义
 from domain.schemas.ipaddress import IPAddress
 from domain.schemas.ip_range import IPRange
-from services.logger import setup_logger
 from services.pubsub_service import PubSubService
+from domain.schemas.ipaddress import IPType
+from services.logger import setup_logger
 logger = setup_logger(__name__)
 
 class IPAddressService:
 
-    def __init__(self, ip_manager: IpaddressManager, ip_range_manager: IPRangeManager, 
-                 provider_manager: ProviderManager,pubsub_service: PubSubService):
+    def __init__(self, ip_manager: IpaddressManager, ip_range_manager: IPRangeManager,
+                 pubsub_service: PubSubService):
         self.ip_manager = ip_manager
         self.ip_range_manager = ip_range_manager
-        self.provider_manager = provider_manager
         self.pubsub_service = pubsub_service
         self.semaphore = asyncio.Semaphore(10)  # 插入ip时限制并发数为10
+        self.max_selected_ips  = 50000
  
     
     async def store_provider_ips(self, provider_id: int):
@@ -171,21 +171,14 @@ class IPAddressService:
 
         return ip_list
     
-    async def get_ips_by_provider(self, provider_id: int, ip_type: str, count: int, randomize: bool = False) -> List[IPAddress]:
-        try:
-            return await self.ip_manager.get_ips_by_provider(provider_id, ip_type, count, randomize)
-        except Exception as e:
-            logger.error(f"Failed to get IP addresses for provider {provider_id}. Error: {e}")
-            raise
     
 
-    async def get_ipsv4_by_provider(self, provider_id: int, count: int, randomize: bool = True) -> List[str]:
-        return await self.get_ips_by_provider(provider_id, 'ipv4', count, randomize)
-    
-    async def get_ipsv6_by_provider(self, provider_id: int, count: int, randomize: bool = True) -> List[str]:
-        return await self.get_ips_by_provider(provider_id, 'ipv6', count, randomize)
-    
-    
-    
-    
-    
+    async def get_provier_ips(self, provider_id: int) -> List[str]:
+        results = await self.ip_manager.get_ips_by_provider(provider_id, IPType.IPV4.value, count=self.max_selected_ips,randomize=True)
+        logger.info(results)
+        if results:
+            return [result.ip_address for result in results]
+        else:
+            return[]
+    # async def get_provider_ips_v6(self, provider_id: int) -> List[IPAddress]:
+    #     return await self.ip_manager.get_ips_by_provider(provider_id, IPType.IPV6.value, count=self.max_selected_ips,randomize=True)

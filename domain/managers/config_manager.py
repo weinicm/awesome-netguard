@@ -1,6 +1,6 @@
 import json
 from typing import Optional
-from domain.schemas.config import Config, TcpingConfig  # 假设这些模型在 domain/schemas/config.py 文件中定义
+from domain.schemas.config import Config, CurlConfig, TcpingConfig  # 假设这些模型在 domain/schemas/config.py 文件中定义
 from db.db_manager import DBManager
 from services.logger import setup_logger
 
@@ -212,6 +212,19 @@ class ConfigManager:
             result = await self.db_manager.fetchrow(query, provider_id)
             if result:
                 return TcpingConfig.from_dict(json.loads(result['tcping']))
+            else:
+                logger.warning(f"Configuration not found for provider ID: {provider_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching configuration for provider ID {provider_id}: {e}")
+            return None
+        
+    async def get_provider_curl_config(self,provider_id:int)->Optional[CurlConfig]:
+        try:
+            query = "SELECT * FROM config WHERE provider_id = $1;"
+            result = await self.db_manager.fetchrow(query, provider_id)
+            if result:
+                return CurlConfig.from_record(json.loads(result['curl']))
             else:
                 logger.warning(f"Configuration not found for provider ID: {provider_id}")
                 return None

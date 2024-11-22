@@ -174,3 +174,10 @@ class ProviderManager:
         providers_data = await self.db_manager.fetch(select_query)
         providers = [Provider.from_dict(dict(provider_data)) for provider_data in providers_data]
         return providers
+    
+    async def get_provider_id(self)-> int:
+        select_query = """
+        SELECT * FROM public.providers WHERE deleted = false;
+        """
+        provider = await self.db_manager.fetchrow(select_query)
+        return provider['id']

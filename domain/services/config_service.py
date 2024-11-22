@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Optional
 from domain.managers.config_manager import ConfigManager
-from domain.schemas.config import Config, ConfigUpdate, ConfigCreate, TcpingConfig  # 假设 Config、ConfigUpdate 和 ConfigCreate 在 schemas.py 文件中定义
+from domain.schemas.config import Config, ConfigUpdate, ConfigCreate, CurlConfig, TcpingConfig  # 假设 Config、ConfigUpdate 和 ConfigCreate 在 schemas.py 文件中定义
 
 logger = logging.getLogger(__name__)
 
@@ -143,4 +143,14 @@ class ConfigService:
             logger.error(f"Error fetching configuration for provider ID {provider_id}: {e}")
             return None
         
-        
+    async def get_provider_curl_config(self, provider_id: int) -> Optional[CurlConfig]:
+        try:
+            config = await self.config_manager.get_provider_curl_config(provider_id)
+            if config:
+                return config
+            else:
+                logger.warning(f"Configuration not found for provider ID: {provider_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching configuration for provider ID {provider_id}: {e}")
+            return None

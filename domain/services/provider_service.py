@@ -114,3 +114,6 @@ class ProviderService:
         if hard_deleted:
             logger.info(f"Provider {provider_id} permanently deleted.")
             return True
+
+    async def get_provider_id(self) -> int:
+        return await self.provider_manager.get_provider_id()

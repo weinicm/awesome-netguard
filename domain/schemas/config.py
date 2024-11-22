@@ -18,6 +18,19 @@ class CurlConfig(BaseModel):
                 setattr(self, key, value)
         return self
 
+    @classmethod
+    def from_record(cls, record):
+        return cls(
+            port=record['port'],
+            speed=record['speed'],
+            enable=record['enable'],
+            time_out=record['time_out'],
+            download_url=record['download_url'],
+            ip_v4_enable=record['ip_v4_enable'],
+            ip_v6_enable=record['ip_v6_enable'],
+            count=record['count']
+        )
+
 class TcpingConfig(BaseModel):
     port: int
     enable: bool

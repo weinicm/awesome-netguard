@@ -1,44 +1,20 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from db.db_manager import DBManager
 from domain.schemas.ipaddress import IPAddress
+from domain.schemas.test_result import TestResult
 
 class IpaddressManager:
     def __init__(self,db_manager:DBManager):
         self.db_manager = db_manager
 
-    async def get_ips_by_provider(self, provider_id: int, ip_type: str, count: int, randomize: bool = False) -> List[IPAddress]:
-        """从数据库中获取指定提供商的IP地址"""
-        
-        if randomize:
-            # 使用 ORDER BY RANDOM() 进行随机抽样
-            query = """
-                SELECT ip_address, ip_type
-                FROM ips
-                WHERE provider_id = $1 AND ip_type = $2
-                ORDER BY RANDOM()
-                LIMIT $3
-            """
-        else:
-            query = """
-                SELECT ip_address, ip_type
-                FROM ips
-                WHERE provider_id = $1 AND ip_type = $2
-                LIMIT $3
-            """
-
-        try:
-            logging.debug(f"我来找Executing query: {query} with args: {provider_id, ip_type, count}")
-            result = await self.db_manager.fetch(query, provider_id, ip_type, count)
-            return [IPAddress(ip_address=row['ip_address'], ip_type=row['ip_type'], provider_id=provider_id) for row in result]
-        except Exception as e:
-            logging.error(f"Error executing fetch: {e}")
-            logging.error(f"Query: {query}")
-            logging.error(f"Args: {provider_id, ip_type, count}")
-            # 处理异常，例如返回一个空列表或默认值
-            raise e
-        
-
+    async def get_better_ips(self,count: int = 1) -> List[TestResult]:
+        query = "SELECT * FROM test_results ORDER BY avg_latency ASC, packet_loss Desc LIMIT $1"
+        results = await self.db_manager.execute(query,count)
+        if results:
+             return [TestResult.from_record(record) for record in results]
+        return None
+   
     async def batch_insert_ips(self, ip_data_list: List[Dict[str, Any]]) -> bool:
         """批量插入IP地址记录"""
         if not ip_data_list:
@@ -77,3 +53,14 @@ class IpaddressManager:
             return True
         except Exception as e:
             print(f"Error during delete: {e}")
+            
+    async def get_ips_by_provider(self, provider_id: int, ip_type: str, count: int = 1, randomize: bool = False) -> List[IPAddress]:
+        if randomize:
+            query = f"SELECT * FROM ips WHERE provider_id = $1 AND ip_type = $2 ORDER BY RANDOM() LIMIT $3"
+        else:
+            query = f"SELECT * FROM ips WHERE provider_id = $1 AND ip_type = $2 LIMIT $3"
+        
+        results = await self.db_manager.fetch(query, provider_id, ip_type, count)
+        if results:
+            return [IPAddress.from_record(record) for record in results]
+        return None

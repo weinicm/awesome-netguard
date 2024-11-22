@@ -1,13 +1,13 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 import math
+import socket
 
 class TcpingRunner:
     @staticmethod
     async def tcp_ping(host, port, timeout=1):
         # 开始计时
         start_time = datetime.now()
-        
         try:
             # 尝试连接到目标主机和端口
             reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
@@ -110,10 +110,10 @@ if __name__ == "__main__":
 
     async def main():
         # 只打印测试信息
-        await TcpingRunner.run('192.168.11.52', 80, count=5, interval=1, timeout=1)
+        await TcpingRunner.run('2001:db8::1', 80, count=5, interval=1, timeout=1)  # IPv6 地址
 
         # 打印测试信息并返回统计信息
-        stats = await TcpingRunner.run_with_stats('192.168.11.52', 80, count=5, interval=1, timeout=1)
+        stats = await TcpingRunner.run_with_stats('2001:db8::1', 80, count=5, interval=1, timeout=1)  # IPv6 地址
         if stats is None:
             print("\nFinal Result:")
             print("No successful responses. The IP may be unreachable or there are other issues.")

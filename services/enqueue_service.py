@@ -39,7 +39,7 @@ class EnqueueService:
         self.groups[group_name].append(task)
         logger.info(f"Task {task} added to group {group_name}")
 
-    async def handle_group_jobs(self, group_name: str):
+    async def _handle_group_jobs(self, group_name: str):
         if group_name not in self.groups:
             logger.warning(f"Group {group_name} not found")
             return
@@ -54,16 +54,16 @@ class EnqueueService:
             task = tasks.popleft()  # 从队列中取出第一个任务
             function_name, args, kwargs = task
             job = await self.enqueue_job(function_name, *args, **kwargs)
-            logger.info(f"Job {job.job_id} added to queue for group {group_name}")
+            # logger.info(f"Job {job.job_id} added to queue for group {group_name}")
             
             while True:
                 job_status = await job.status()
-                logger.info(f"Job {job.job_id} status: {job_status}")
+                # logger.info(f"Job {job.job_id} status: {job_status}")
                 if job_status == 'complete':
                     logger.info(f"Job {job.job_id} completed.")
                     break
                 elif job_status in ['not_found', 'deferred', 'queued', 'in_progress']:
-                    logger.info(f"Job {job.job_id} is still {job_status}. Waiting...")
+                    # logger.info(f"Job {job.job_id} is still {job_status}. Waiting...")
                     await asyncio.sleep(1)  # 等待1秒后再次检查
                 else:
                     logger.error(f"Unexpected job status: {job_status}")
@@ -76,7 +76,7 @@ class EnqueueService:
             logger.warning(f"Group {group_name} is already running")
             return
         
-        asyncio.create_task(self.handle_group_jobs(group_name))
+        asyncio.create_task(self._handle_group_jobs(group_name))
 
     async def close(self):
         if self.redis_pool:

@@ -16,6 +16,10 @@ from domain.managers.provider_manager import ProviderManager
 from services.enqueue_service import EnqueueService
 from domain.managers.monitor_manager import MonitorManager
 from domain.services.monitor_service import MonitorService
+from domain.services.config_service import TcpingConfig
+
+# 导入 CurlTestService
+from domain.services.curl_test_service import CurlTestService
 
 # 设置日志记录
 from services.logger import setup_logger
@@ -57,7 +61,6 @@ class ApplicationContainer(containers.DeclarativeContainer):
         IPAddressService,
         ip_manager=ipaddress_manager,
         ip_range_manager=ip_range_manager,
-        provider_manager=provider_manager,
         pubsub_service=pubsub_service
     )
 
@@ -74,7 +77,12 @@ class ApplicationContainer(containers.DeclarativeContainer):
         TcpingTestService,
         pubsub_service=pubsub_service,
         test_result_manager=test_result_manager,
-        enqueue_service=enqueue_service
+    )
+
+    # 添加 CurlTestService
+    curl_test_service = providers.Factory(
+        CurlTestService,
+        test_result_manager=test_result_manager
     )
 
     # 添加 MonitorManager 和 MonitorService
@@ -112,11 +120,15 @@ async def get_ip_address_service() -> IPAddressService:
 async def get_enqueue_service() -> EnqueueService:
     return container.enqueue_service()
 
-def get_config_service() -> ConfigService:
+async def get_config_service() -> ConfigService:
     return container.config_service()
 
 async def get_tcping_test_service() -> TcpingTestService:
     return await container.tcping_test_service()
+
+# 添加获取 CurlTestService 的辅助函数
+def get_curl_test_service() -> CurlTestService:
+    return container.curl_test_service()
 
 # 添加获取 MonitorManager 和 MonitorService 的辅助函数
 def get_monitor_manager() -> MonitorManager:

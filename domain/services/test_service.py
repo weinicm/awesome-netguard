@@ -2,7 +2,6 @@ from datetime import datetime
 import logging
 import ipaddress
 from typing import List, Dict, Any, Tuple
-from domain.models.test_result import TestResult
 from domain.services.ip_address_service import IPAddressService
 from domain.services.config_service import ConfigService
 from domain.managers.test_result_manager import TestResultManager
@@ -292,22 +291,7 @@ class TestService:
             return False
         
         
-    async def get_better_ip(self, provider_id: int) -> Tuple[List[TestResult], List[TestResult]]:
-        config = await self.get_monitor_config()
-        count = config['count']
-        list_v4 = []
-        list_v6 = []
-        try:
-            test_results = await self.test_result_manager.get_better_ip(provider_id,count)
-            for test_result in test_results:
-                if ipaddress.ip_address(test_result.ip).version == 4:
-                    list_v4.append(test_result)
-                else:
-                    list_v6.append(test_result)
-            return list_v4[:count], list_v6[:count]
-        except Exception as e:
-            logging.error(f"An error occurred while getting better IP: {e}")
-            return []
+
 
     async def get_better_ip_v6(self, provider_id: int) -> List[str]:
        list_v6= self.cache_service.get_cache("better_ip_v6" + str(provider_id))
