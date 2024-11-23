@@ -11,17 +11,18 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - REDIS_HOST=redis
+      - REDIS_HOST=192.168.10.21
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - DATABASE_HOST=db
+      - DATABASE_HOST=192.168.10.100
       - DATABASE_PORT=5432
-      - POSTGRES_DB=mydatabase
+      - POSTGRES_DB=netguard
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    depends_on:
-      - db
-      - redis
+      - POSTGRES_PASSWORD=123456
+    # 不再需要依赖本地的 db 和 redis 服务
+    # depends_on:
+    #   - db
+    #   - redis
 
   worker:
     build:
@@ -31,30 +32,32 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - REDIS_HOST=redis
+      - REDIS_HOST=127.0.0.1
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - DATABASE_HOST=db
+      - DATABASE_HOST=192.168.10.100
       - DATABASE_PORT=5432
-      - POSTGRES_DB=mydatabase
+      - POSTGRES_DB=netguard
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    depends_on:
-      - db
-      - redis
+      - POSTGRES_PASSWORD=123456
+    # 不再需要依赖本地的 db 和 redis 服务
+    # depends_on:
+    #   - db
+    #   - redis
 
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: mydatabase
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  # 移除本地的 db 和 redis 服务
+  # db:
+  #   image: postgres:13
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: mydatabase
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
+  # redis:
+  #   image: redis:latest
+  #   ports:
+  #     - "6379:6379"
