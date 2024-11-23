@@ -11,7 +11,7 @@ class RedisManager:
     async def get_instance() -> Awaitable['RedisManager']:
         if RedisManager._instance is None:
             RedisManager._instance = await aioredis.from_url(
-                f"redis://{os.getenv('REDIS_HOST', 'localhost')}",
+                f"redis://{os.getenv('REDIS_HOST', '127.0.0.1')}",
                 port=int(os.getenv('REDIS_PORT', 6379)),
                 db=int(os.getenv('REDIS_DB', 0)),
                 encoding='utf-8'
@@ -22,7 +22,7 @@ class RedisManager:
     def get_redis_config() -> Dict[str, str]:
         """ 返回 Redis 连接的配置信息 """
         return {
-            'url': f"redis://{os.getenv('REDIS_HOST', 'localhost')}",
+            'url': f"redis://{os.getenv('REDIS_HOST', '127.0.0.1')}",
             'port': str(os.getenv('REDIS_PORT', 6379)),
             'db': str(os.getenv('REDIS_DB', 0)),
             'encoding': 'utf-8'
